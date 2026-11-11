@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Цитоскоп — демо</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="static/app.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%2363c3d1' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23ef5da8'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="16" cy="16" r="5" fill="var(--accent-2)"/></svg>Цитоскоп</div>
+  <label class="slide-pick">
+    <span class="sr">Снимок</span>
+    <select id="slideSelect"></select>
+  </label>
+  <div class="meta" id="slideMeta"></div>
+  <div class="spacer"></div>
+  <div class="job" id="job" hidden>
+    <div class="job-bar"><i id="jobBar"></i></div>
+    <span id="jobText"></span>
+  </div>
+  <label class="btn ghost" title="Загрузить снимок .svs с компьютера">Загрузить<input type="file" id="upload" accept=".svs,.tif,.tiff,.ndpi,.mrxs,.scn,.bif" hidden></label>
+  <button class="btn" id="btnAnalyze" title="Запустить анализ ИИ">Анализ ИИ</button>
+  <a class="btn ghost" id="btnExport" title="Скачать проверенную разметку (JSON) для дообучения">Разметка ↓</a>
+</header>
+
+<main class="layout">
+  <nav class="tools" aria-label="Инструменты">
+    <button class="tool active" data-tool="pan" title="Перемещение (V)"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg></button>
+    <button class="tool" data-tool="box" title="Обвести клетку (B)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2"/><path d="M12 9v6M9 12h6"/></svg></button>
+    <button class="tool" data-tool="ruler" title="Линейка (R)"><svg viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></svg></button>
+    <div class="sep"></div>
+    <button class="tool" id="btnBoxes" title="Скрыть/показать рамки (H)"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    <button class="tool" id="btnShot" title="Снимок экрана с разметкой (S)"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+    <button class="tool" id="btnHelp" title="Горячие клавиши (?)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg></button>
+  </nav>
+
+  <section class="stage">
+    <div id="osd" class="osd"></div>
+    <div class="zoombar" id="zoombar" role="group" aria-label="Увеличение"></div>
+    <div class="readout" id="readout"></div>
+    <div class="scalebar" id="scalebar"><i></i><span></span></div>
+    <figure class="labelcard" id="labelCard" hidden>
+      <img id="labelImg" alt="Этикетка стекла">
+      <figcaption id="labelCap"></figcaption>
+    </figure>
+    <div class="hint" id="toolHint" hidden></div>
+    <div class="empty" id="empty" hidden>Положите файлы .svs в папку снимков — они появятся в списке.</div>
+  </section>
+
+  <aside class="panel">
+    <section class="ai" id="aiCard">
+      <div class="ai-head">
+        <span class="ai-tag">ИИ</span>
+        <span class="ai-title">Предварительная оценка</span>
+      </div>
+      <div class="ai-cat" id="aiCat">—</div>
+      <p class="ai-note" id="aiNote"></p>
+      <dl class="ai-stats" id="aiStats"></dl>
+    </section>
+
+    <div class="tabs" id="tabs" role="tablist"></div>
+
+    <section class="detail" id="detail" hidden></section>
+
+    <section class="gallery" id="gallery"></section>
+    <div class="pager" id="pager"></div>
+
+    <footer class="panel-foot">
+      <div><span class="muted">Клеток плоского эпителия</span><b id="cellCount">—</b></div>
+      <div><span class="muted">Проверено врачом</span><b id="reviewCount">—</b></div>
+    </footer>
+  </aside>
+</main>
+
+<div class="menu" id="classMenu" hidden role="menu"></div>
+<dialog id="help">
+  <h3>Горячие клавиши</h3>
+  <table>
+    <tr><td><kbd>A</kbd> / <kbd>Enter</kbd></td><td>подтвердить находку</td></tr>
+    <tr><td><kbd>X</kbd> / <kbd>Del</kbd></td><td>отклонить находку</td></tr>
+    <tr><td><kbd>U</kbd></td><td>вернуть «не проверено»</td></tr>
+    <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>сменить класс выбранной находки</td></tr>
+    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>предыдущая / следующая находка</td></tr>
+    <tr><td><kbd>B</kbd></td><td>обвести свою клетку</td></tr>
+    <tr><td><kbd>R</kbd></td><td>линейка</td></tr>
+    <tr><td><kbd>V</kbd> / <kbd>Esc</kbd></td><td>перемещение</td></tr>
+    <tr><td><kbd>H</kbd></td><td>скрыть рамки</td></tr>
+    <tr><td><kbd>F</kbd></td><td>весь снимок</td></tr>
+    <tr><td><kbd>S</kbd></td><td>снимок экрана</td></tr>
+  </table>
+  <form method="dialog"><button class="btn">Понятно</button></form>
+</dialog>
+<dialog id="labelBig"><img id="labelBigImg" alt=""><form method="dialog"><button class="btn">Закрыть</button></form></dialog>
+
+<script src="static/demo.js"></script>
+<script src="static/vendor/openseadragon.min.js"></script>
+<script src="static/app.js"></script>
+</body>
+</html>
